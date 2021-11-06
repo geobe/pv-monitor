@@ -29,7 +29,7 @@ package de.geobe.energy.config
  */
 class Configuration {
     ConfigObject conf
-    def init(String filename = 'testConfig.cfg') {
+    def init(String filename = 'sampleConfig.cfg') {
         if(!filename.contains('/')) {
             // look for file in config package
             filename = 'de/geobe/energy/config/' + filename
