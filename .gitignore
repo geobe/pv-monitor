@@ -1,2 +1,10 @@
 /src/main/resources/de/geobe/energy/config/liveConfig.cfg
 /src/main/resources/de/geobe/energy/config/testConfig.cfg
+/.idea/.gitignore
+/.idea/compiler.xml
+/.idea/gradle.xml
+/.idea/jarRepositories.xml
+/.idea/misc.xml
+/.idea/runConfigurations.xml
+/.idea/vcs.xml
+/libs/

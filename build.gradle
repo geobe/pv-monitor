@@ -34,9 +34,17 @@ dependencies {
     implementation "org.gebish:geb-spock:${gebVersion}"
     implementation "org.slf4j:slf4j-api:${slf4jVersion}"
     implementation "org.slf4j:slf4j-simple:${slf4jVersion}"
-    implementation "com.pi4j:pi4j-core:${pi4jVersion}"
-    implementation "com.sparkjava:spark-core:${sparkVersion}"
-    implementation "io.pebbletemplates:pebble:${pebbleVersion}"
+    implementation group: 'org.hibernate', name: 'hibernate-core', version: '5.5.3.Final'
+    implementation group: 'com.mchange', name: 'c3p0', version: '0.9.5.5'
+    implementation group: 'com.h2database', name: 'h2', version: '1.4.200'
+}
+
+
+git {
+    implementation 'https://github.com/geobe/easyHibernate.git', {
+        name 'easyHibernate'
+        tag 'V1.0'
+    }
 }
 
 //mainClassName = 'de.geobe.energy.acquire.S10Access'

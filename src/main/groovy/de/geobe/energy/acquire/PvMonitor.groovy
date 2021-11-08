@@ -32,14 +32,30 @@ import java.time.LocalDateTime
 import java.util.concurrent.ScheduledThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 
+/**
+ * Actor periodically polls S10 web interface, checks if read data are new
+ * and passes updated dataset as message to a processing actor.<br>
+ * Class responsibilities:
+ * <ul>
+ *     <li>Periodically poll for data for nearly periodic data updates;</li>
+ *     </li>maintain timer for scheduling;</li>
+ *     <li>filter out all data already sent;</li>
+ *     <li>store new data in PvRecorder agent;</li>
+ *     <li>pass copy of agent dataset to all registered actors.</li>
+ * </ul>
+ */
 class PvMonitor extends DefaultActor {
 
     private static final int STARTUP_DELAY = 3
-    /** Delay between two read operations, trying ~ 4 ties to find new value */
+    /** Delay between two read operations, trying ~ 4 times to find new value */
     private static final int READ_DELAY = 60 / (4 * PvRecorder.UPDATE_RATE) + 1
 
-    /** send messages to this Actor */
-    Actor notificationTarget
+    /** send messages to these Actors */
+    private List<Actor> pvDataProcessors = []
+
+    def addPvDataProcessor(Actor processor) {
+        pvDataProcessors << processor
+    }
 
     /** used to schedule repeated S10 readout */
     private ScheduledThreadPoolExecutor timer = new ScheduledThreadPoolExecutor(1)
@@ -80,7 +96,9 @@ class PvMonitor extends DefaultActor {
                             recorder.addReading(msg)
                             def recording = recorder.val()
                             lastTimestamp = timestamp
-                            notificationTarget?.send(recording)
+                            pvDataProcessors.each { processor ->
+                                processor.send(recording)
+                            }
                         }
                         timer.schedule(readout, READ_DELAY, TimeUnit.SECONDS)
                         break
@@ -92,14 +110,17 @@ class PvMonitor extends DefaultActor {
 
     }
 
+    /**
+     * Runnable object gets periodically scheduled by timer to readout S10 web interface
+     */
     class TimedPvReadout implements Runnable {
-//        Actor actor
-//        S10Access s10Access
 
         @Override
         void run() {
             def v = s10Access.readCurrentValues()
-            PvMonitor.this.send(new Reading(v))
+            def r = new Reading(v)
+            println "read $r"
+            PvMonitor.this.send(r)
         }
     }
 }
