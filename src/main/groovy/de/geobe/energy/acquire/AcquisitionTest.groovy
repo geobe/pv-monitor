@@ -25,22 +25,16 @@
 package de.geobe.energy.acquire
 
 import de.geobe.energy.persist.PvDataFilter
+import de.geobe.energy.persist.PvDb
 import groovyx.gpars.actor.DefaultActor
 
 class AcquisitionTest extends DefaultActor {
-    PvMonitor pvMonitor
-
-    AcquisitionTest(PvMonitor monitor) {
-        pvMonitor = monitor
-//        pvMonitor.addPvDataProcessor(this)
-    }
 
     void afterStart() {
         println "${this.class.name} actor started"
     }
 
     void afterStop() {
-        pvMonitor << new Terminator()
         println "AcquisitionTest actor stoped"
     }
 
@@ -48,11 +42,11 @@ class AcquisitionTest extends DefaultActor {
         loop {
             react { Object msg ->
                 switch (msg) {
-                    case Collection:
-                        println "${msg.class.name} of ${msg.size()} elements"
-                        msg.each {
-                            println it
-                        }
+                    case List<Reading>:
+//                        if(msg) {
+//                            PvDb.pvDatabase.saveToDb(msg[0])
+//                        }
+//                        println msg[0]
                         break
                     case Terminator:
                         println 'Terminator got me'
@@ -67,9 +61,11 @@ class AcquisitionTest extends DefaultActor {
 
 class TestRun {
     static void main(String[] args) {
-        def pvMonitor = new PvMonitor()
-        def acqt = new AcquisitionTest(pvMonitor)
-        def dataFilter = new PvDataFilter(pvMonitor)
+        PvDataFilter.recordReadings = false // save raw data to db for tests
+        PvDb.getPvDatabase()      // init singleton
+        def pvMonitor = new PvTestMonitor()
+        def acqt = new AcquisitionTest()
+        def dataFilter = new PvDataFilter()
         pvMonitor.addPvDataProcessor(acqt)
         pvMonitor.addPvDataProcessor(dataFilter)
         acqt.start()
@@ -83,6 +79,10 @@ class TestRun {
         }
         println "$r1"
         acqt << new Terminator()
+        dataFilter << new Terminator()
+        if(pvMonitor instanceof DefaultActor) {
+            pvMonitor << new Terminator()
+        }
         Thread.sleep 5000
     }
 }

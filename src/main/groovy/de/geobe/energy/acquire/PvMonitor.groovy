@@ -47,8 +47,8 @@ import java.util.concurrent.TimeUnit
 class PvMonitor extends DefaultActor {
 
     private static final int STARTUP_DELAY = 3
-    /** Delay between two read operations, trying ~ 4 times to find new value */
-    private static final int READ_DELAY = 60 / (4 * PvRecorder.UPDATE_RATE) + 1
+    /** Delay between two read operations, trying ~ 2 times to find new value */
+    private static final int READ_DELAY = 60 / (2 * PvRecorder.UPDATE_RATE) + 1
 
     /** send messages to these Actors */
     private List<Actor> pvDataProcessors = []

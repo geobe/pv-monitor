@@ -3,6 +3,7 @@ import javax.persistence.Entity
 import javax.persistence.GeneratedValue
 import javax.persistence.GenerationType
 import javax.persistence.Id
+import java.time.LocalDateTime
 
 @Entity
 class PvData {
@@ -10,7 +11,7 @@ class PvData {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE)
     Long id
-    Long recordedAt
+    LocalDateTime recordedAt
     Integer prodAvg = 0
     Integer prodMin = 0
     Integer prodMax = 0

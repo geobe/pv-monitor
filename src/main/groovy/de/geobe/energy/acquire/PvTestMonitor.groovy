@@ -24,43 +24,33 @@
 
 package de.geobe.energy.acquire
 
-import groovyx.gpars.agent.Agent
-
-import javax.persistence.Entity
-import javax.persistence.GeneratedValue
-import javax.persistence.GenerationType
-import javax.persistence.Id
-import javax.persistence.Temporal
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
+import de.geobe.energy.persist.PvDb
+import groovyx.gpars.actor.Actor
 
 /**
- *
+ * Test actor that reads values from PvData database
  */
-class PvRecorder extends Agent<ArrayDeque<Reading>> {
-    static final int SHORT_INTERVAL = 5
-    static final int LONG_INTERVAL = 15
-    static final int UPDATE_RATE = 3
-    static final int MAX_READINGS = LONG_INTERVAL * UPDATE_RATE
+class PvTestMonitor {
 
-    private data = new ArrayDeque<>(MAX_READINGS + 1)
+    /** send messages to these Actors */
+    private List<Actor> pvDataProcessors = []
 
-    /**
-     * add new reading to the data log and remove oldest reading, if it is
-     * older then LONG_INTERVAL minutes
-     * @param reading values read from web interface
-     */
-    def addReading(Reading reading) {
-        if (data.size() >= MAX_READINGS) {
-            data.remove()
+    def addPvDataProcessor(Actor processor) {
+        pvDataProcessors << processor
+    }
+
+    private PvRecorder recorder = new PvRecorder()
+
+    def start() {
+        PvDb.pvDatabase.clearPvData()
+        def rawData = PvDb.pvDatabase.readingDao.fetchAll()
+        rawData.each { reading ->
+            recorder.addReading(reading)
+            def recording = recorder.val()
+            pvDataProcessors.each { processor ->
+                processor.send(recording)
+            }
         }
-        data.add reading
-        return
     }
 
-    def val() {
-        new ArrayList<Reading>(data.toArray() as Collection<? extends Reading>).reverse(true)
-    }
 }
-
-

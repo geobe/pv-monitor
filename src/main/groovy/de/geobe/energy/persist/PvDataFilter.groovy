@@ -1,40 +1,33 @@
 package de.geobe.energy.persist
 
 import de.geobe.energy.acquire.PvMonitor
-import de.geobe.energy.acquire.PvRecorder
 import de.geobe.energy.acquire.Reading
 import de.geobe.energy.acquire.Terminator
 import groovyx.gpars.actor.DefaultActor
 
 import java.time.LocalDateTime
 import java.time.ZoneId
-import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
 
 import static java.lang.Math.min
 import static java.lang.Math.max
 
 class PvDataFilter extends DefaultActor {
-    static final int STORAGE_INTERVAL = 1
+    static final int STORAGE_INTERVAL = 5
     static final int SAMPLE_SIZE = STORAGE_INTERVAL * 3
     static final int MINUTES = 60
     static final int ZERO_INTERVAL = 10
 
+    static recordReadings = false
+
     private LocalDateTime lastSaved
-
-    PvMonitor pvMonitor
-    PvDb pvDb = new PvDb()
-
-    PvDataFilter(PvMonitor monitor) {
-        pvMonitor = monitor
-    }
+    private LocalDateTime lastTimestamp
 
     void afterStart() {
         println "${this.class.name} actor started"
     }
 
     void afterStop() {
-        pvMonitor << new Terminator()
         println "Pv Data Filter actor stoped"
     }
 
@@ -43,10 +36,6 @@ class PvDataFilter extends DefaultActor {
             react { Object msg ->
                 switch (msg) {
                     case List:
-                        println "${msg.class.name} of ${msg.size()} elements"
-                        msg.each {
-                            println it
-                        }
                         if (msg) {
                             evaluateMessage(msg)
                         }
@@ -62,8 +51,10 @@ class PvDataFilter extends DefaultActor {
     }
 
     private evaluateMessage(List<Reading> msg) {
+        if(recordReadings) {
+            PvDb.pvDatabase.saveToDb(msg[0])
+        }
         def latest = msg[0].timestamp
-        def oldest = msg[-1].timestamp
         if (msg.size() < SAMPLE_SIZE) {
             return      // too few samples in msg
         }
@@ -74,7 +65,12 @@ class PvDataFilter extends DefaultActor {
             minute = minute + 1     // round to next minute
             timestamp = timestamp.plusMinutes(1)
         } else if (second > ZERO_INTERVAL) {
-            return      // latest sample not at full minute
+            // check if sample at full minute got lost (happens sometimes)
+            if(!(minute > lastTimestamp?.minute)) {
+                return      // latest sample not at full minute
+            }
+        } else if(timestamp.equals(lastTimestamp)) {
+            return      // still too close to the last recorded minute
         }
         def modulo = minute % STORAGE_INTERVAL
         if (modulo != 0) {
@@ -87,10 +83,10 @@ class PvDataFilter extends DefaultActor {
             sample = msg[0..<SAMPLE_SIZE]
         }
         lastSaved = latest
+        lastTimestamp = timestamp
         def data = new PvData()
         def zoneOffset = ZoneId.systemDefault().getRules().getOffset(timestamp)
-        println "ZoneOffset: $zoneOffset"
-        data.recordedAt = timestamp.toInstant(zoneOffset).epochSecond
+        data.recordedAt = timestamp
         data.battLoad = sample[0].batteryState
         data.prodMin = sample[0].production
         data.consMin = sample[0].consumption
@@ -125,7 +121,7 @@ class PvDataFilter extends DefaultActor {
         data.gridAvg = data.gridAvg.intdiv(sample.size())
         data.battAvg = data.battAvg.intdiv(sample.size())
 
-        pvDb.saveToDb(data)
+        PvDb.pvDatabase.saveToDb(data)
     }
 
 }
