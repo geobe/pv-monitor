@@ -14,36 +14,38 @@ ext {
     groovyVersion = '3.0.8'
     gparsVersion = '1.2.1'
     spockVersion = '2.0-groovy-3.0'
-    gebVersion = '4.1'
+    gebVersion = '5.1'
     seleniumVersion = '3.141.59'
     slf4jVersion = '1.7.32'
     pi4jVersion = '1.4'
     sparkVersion = '2.9.3'
     pebbleVersion = '3.1.5'
+    hibernateVersion='5.5.3.Final'
+    c3p0Version= '0.9.5.5'
+    h2dbVersion='1.4.200'
 }
 
 apply from: 'https://raw.githubusercontent.com/geobe/Java2PiWithIdea/master/crossdev.gradle'
 
 dependencies {
     implementation "org.codehaus.groovy:groovy-all:${groovyVersion}"
-    implementation group: 'org.codehaus.gpars', name: 'gpars', version: '1.2.1'
+    implementation "org.codehaus.gpars:gpars:${gparsVersion}"
     implementation "org.gebish:geb-core:${gebVersion}"
     implementation "org.seleniumhq.selenium:selenium-chrome-driver:${seleniumVersion}"
     implementation "org.seleniumhq.selenium:selenium-support:${seleniumVersion}"
-    implementation "org.spockframework:spock-core:${spockVersion}"
     implementation "org.gebish:geb-spock:${gebVersion}"
     implementation "org.slf4j:slf4j-api:${slf4jVersion}"
     implementation "org.slf4j:slf4j-simple:${slf4jVersion}"
-    implementation group: 'org.hibernate', name: 'hibernate-core', version: '5.5.3.Final'
-    implementation group: 'com.mchange', name: 'c3p0', version: '0.9.5.5'
-    implementation group: 'com.h2database', name: 'h2', version: '1.4.200'
+    implementation "org.hibernate:hibernate-core:${hibernateVersion}"
+    implementation "com.mchange:c3p0:${c3p0Version}"
+    implementation "com.h2database:h2:${h2dbVersion}"
+    testImplementation "org.spockframework:spock-core:${spockVersion}"
 }
-
 
 git {
     implementation 'https://github.com/geobe/easyHibernate.git', {
         name 'easyHibernate'
-        tag 'V1.0'
+        tag 'V1.1.2'
     }
 }
 

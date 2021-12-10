@@ -1,0 +1,86 @@
+@startuml
+'https://plantuml.com/sequence-diagram
+skinparam sequenceMessageAlign right
+autonumber
+boundary AcquisitionApi as api <<Singleton>>
+participant PvMonitor as monitor  << DefaultActor>>
+participant PvDataFilter as filter << DefaultActor>>
+participant S10Access as s10
+participant PvRecorder as recorder << Agent >>
+participant ScheduledThreadPoolExecutor as readout <<Runable>>
+boundary PvDb as db <<Singleton >>
+
+== INIT ==
+[-> api++ : create
+api -> db : getPvDatabase
+create monitor
+api -> monitor : new
+create readout
+monitor -> readout : new
+create filter
+api -> filter : new
+api -> monitor : addPvDataProcessor(filter)
+api -> monitor : addPvDataProcessor(filter)
+
+== STARTUP ==
+api -> filter : start
+activate filter
+api -> monitor : start
+api--
+deactivate filter
+activate monitor
+create s10
+monitor -> s10 : new
+create recorder
+monitor -> recorder : new
+monitor -> s10++ : openSite
+return browser
+monitor --> readout : schedule(readout)
+deactivate monitor
+
+==REPEAT==
+group asynchronous parallel
+    loop read s10 values every 10 seconds
+        readout -> readout++ : run
+        readout --> monitor : send(reading)
+        deactivate readout
+        monitor -> monitor++ : loop
+        monitor -> recorder++ : addReading(reading)
+        monitor -> recorder : val
+        return [reading]
+        deactivate recorder
+        monitor --> filter++ : send([reading])
+        monitor --> readout : schedule(readout)
+        deactivate monitor
+        filter -> filter++ : evaluateMessage
+        filter -> db++ : [new interval data] saveToDb()
+        return
+        return
+        deactivate filter
+    end
+    group api access
+        [-> api++ : getValues
+        api -> recorder++ : val()
+        return [reading]
+        return ([reading])
+    end
+end
+
+== SHUTDOWN ==
+
+[-> api++ : stop
+api -> monitor++ : send(Terminator)
+api--
+monitor -> readout++ : shutdownNow()
+readout -> readout : awaitTermination()
+return
+monitor --> filter++ : send(Terminator)
+filter--
+'...wait 15 s...
+monitor -> s10++ : doLogout()
+return
+monitor -> db++ : shutdown()
+return
+monitor--
+
+@enduml

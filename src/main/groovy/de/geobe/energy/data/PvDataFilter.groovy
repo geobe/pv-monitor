@@ -1,21 +1,24 @@
-package de.geobe.energy.persist
+package de.geobe.energy.data
 
-import de.geobe.energy.acquire.PvMonitor
+
 import de.geobe.energy.acquire.Reading
 import de.geobe.energy.acquire.Terminator
 import groovyx.gpars.actor.DefaultActor
 
 import java.time.LocalDateTime
-import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 
-import static java.lang.Math.min
-import static java.lang.Math.max
+import static de.geobe.energy.acquire.PvRecorder.UPDATE_RATE
 
+/**
+ * Recorded list of PV readings is passed thru PvDataFilter. Here, values recorded during non overlapping
+ * time intervals of STORAGE_INTERVAL minutes are aggregated to average, minimal and maximal
+ * values during their interval. Aggregated values are written to pvdata h2 database.
+ */
 class PvDataFilter extends DefaultActor {
-    static final int STORAGE_INTERVAL = 5
-    static final int SAMPLE_SIZE = STORAGE_INTERVAL * 3
-    static final int MINUTES = 60
+    static final int STORAGE_INTERVAL = 5   // into database
+    static final int SAMPLE_SIZE = STORAGE_INTERVAL * UPDATE_RATE
+    static final int SECONDS_PER_MINUTE = 60
     static final int ZERO_INTERVAL = 10
 
     static recordReadings = false
@@ -61,7 +64,7 @@ class PvDataFilter extends DefaultActor {
         def second = latest.second
         def minute = latest.minute
         def timestamp = latest.truncatedTo(ChronoUnit.MINUTES)
-        if (second >= MINUTES - ZERO_INTERVAL) {
+        if (second >= SECONDS_PER_MINUTE - ZERO_INTERVAL) {
             minute = minute + 1     // round to next minute
             timestamp = timestamp.plusMinutes(1)
         } else if (second > ZERO_INTERVAL) {
@@ -84,44 +87,43 @@ class PvDataFilter extends DefaultActor {
         }
         lastSaved = latest
         lastTimestamp = timestamp
-        def data = new PvData()
-        def zoneOffset = ZoneId.systemDefault().getRules().getOffset(timestamp)
-        data.recordedAt = timestamp
-        data.battLoad = sample[0].batteryState
-        data.prodMin = sample[0].production
-        data.consMin = sample[0].consumption
-        data.gridMin = sample[0].gridPower
-        data.battMin = sample[0].batteryPower
-        println "saved at $timestamp:"
-        sample.each { reading ->
-            println "\t $reading"
-            data.prodAvg += reading.production
-            data.prodMax = max(data.prodMax, reading.production)
-            data.prodMin = min(data.prodMin, reading.production)
+        def pvData = PvData.fromReadings(sample, timestamp)
+//        pvData.recordedAt = timestamp
+//        pvData.battLoad = sample[0].batteryState
+//        pvData.prodMin = sample[0].production
+//        pvData.consMin = sample[0].consumption
+//        pvData.gridMin = sample[0].gridPower
+//        pvData.battMin = sample[0].batteryPower
+//        println "saved at $timestamp:"
+//        sample.each { reading ->
+//            println "\t $reading"
+//            pvData.prodAvg += reading.production
+//            pvData.prodMax = max(pvData.prodMax, reading.production)
+//            pvData.prodMin = min(pvData.prodMin, reading.production)
+//
+//            pvData.consAvg += reading.consumption
+//            pvData.consMax = max(pvData.consMax, reading.consumption)
+//            pvData.consMin = min(pvData.consMin, reading.consumption)
+//
+//            pvData.gridAvg += reading.gridPower
+//            pvData.gridMax = max(pvData.gridMax, reading.gridPower)
+//            pvData.gridMin = min(pvData.gridMin, reading.gridPower)
+//            if(reading.gridPower > 0) {
+//                pvData.fromGrid += reading.gridPower
+//            } else {
+//                pvData.toGrid += reading.gridPower
+//            }
+//
+//            pvData.battAvg += reading.batteryPower
+//            pvData.battMax = max(pvData.battMax, reading.batteryPower)
+//            pvData.battMin = min(pvData.battMin, reading.batteryPower)
+//        }
+//        pvData.prodAvg = pvData.prodAvg.intdiv(sample.size())
+//        pvData.consAvg = pvData.consAvg.intdiv(sample.size())
+//        pvData.gridAvg = pvData.gridAvg.intdiv(sample.size())
+//        pvData.battAvg = pvData.battAvg.intdiv(sample.size())
 
-            data.consAvg += reading.consumption
-            data.consMax = max(data.consMax, reading.consumption)
-            data.consMin = min(data.consMin, reading.consumption)
-
-            data.gridAvg += reading.gridPower
-            data.gridMax = max(data.gridMax, reading.gridPower)
-            data.gridMin = min(data.gridMin, reading.gridPower)
-            if(reading.gridPower > 0) {
-                data.fromGrid += reading.gridPower
-            } else {
-                data.toGrid += reading.gridPower
-            }
-
-            data.battAvg += reading.batteryPower
-            data.battMax = max(data.battMax, reading.batteryPower)
-            data.battMin = min(data.battMin, reading.batteryPower)
-        }
-        data.prodAvg = data.prodAvg.intdiv(sample.size())
-        data.consAvg = data.consAvg.intdiv(sample.size())
-        data.gridAvg = data.gridAvg.intdiv(sample.size())
-        data.battAvg = data.battAvg.intdiv(sample.size())
-
-        PvDb.pvDatabase.saveToDb(data)
+        PvDb.pvDatabase.saveToDb(pvData)
     }
 
 }

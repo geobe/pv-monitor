@@ -24,11 +24,11 @@
 
 package de.geobe.energy.acquire
 
-import de.geobe.energy.persist.PvDb
+import de.geobe.energy.data.PvDb
 import groovyx.gpars.actor.Actor
 
 /**
- * Test actor that reads values from PvData database
+ * Test class that reads values from PvData database
  */
 class PvTestMonitor {
 
@@ -42,13 +42,17 @@ class PvTestMonitor {
     private PvRecorder recorder = new PvRecorder()
 
     def start() {
-        PvDb.pvDatabase.clearPvData()
-        def rawData = PvDb.pvDatabase.readingDao.fetchAll()
-        rawData.each { reading ->
-            recorder.addReading(reading)
-            def recording = recorder.val()
-            pvDataProcessors.each { processor ->
-                processor.send(recording)
+        if(PvDb.debugMode) {
+            PvDb.pvDatabase.clearPvData()
+            PvDb.pvDatabase.pvDao.commit()
+            def rawData = PvDb.pvDatabase.readingDao.fetchAll()
+            rawData.each { reading ->
+                println reading
+                recorder << { addReading(reading) }
+                def recording = recorder.values
+                pvDataProcessors.each { processor ->
+                    processor.send(recording)
+                }
             }
         }
     }

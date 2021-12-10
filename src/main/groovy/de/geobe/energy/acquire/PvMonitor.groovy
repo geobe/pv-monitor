@@ -24,6 +24,7 @@
 
 package de.geobe.energy.acquire
 
+import de.geobe.energy.data.PvDb
 import geb.Browser
 import groovyx.gpars.actor.Actor
 import groovyx.gpars.actor.DefaultActor
@@ -93,8 +94,8 @@ class PvMonitor extends DefaultActor {
                     case Reading:
                         def timestamp = ((Reading) msg).timestamp
                         if (!lastTimestamp || lastTimestamp.compareTo(timestamp) < 0) {
-                            recorder.addReading(msg)
-                            def recording = recorder.val()
+                            recorder << { addReading(msg) }
+                            def recording = recorder.values
                             lastTimestamp = timestamp
                             pvDataProcessors.each { processor ->
                                 processor.send(recording)
@@ -103,11 +104,21 @@ class PvMonitor extends DefaultActor {
                         timer.schedule(readout, READ_DELAY, TimeUnit.SECONDS)
                         break
                     case Terminator:
+                        timer.shutdownNow()
+                        pvDataProcessors.each {actor ->
+                            actor.send(new Terminator())
+                        }
+                        s10Access.doLogout()
+                        PvDb.pvDatabase.shutdown()
+                        reply('done')
                         terminate()
                 }
             }
         }
+    }
 
+    def getRecorder() {
+        recorder
     }
 
     /**

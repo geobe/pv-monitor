@@ -24,8 +24,8 @@
 
 package de.geobe.energy.acquire
 
-import de.geobe.energy.persist.PvDataFilter
-import de.geobe.energy.persist.PvDb
+import de.geobe.energy.data.PvDataFilter
+import de.geobe.energy.data.PvDb
 import groovyx.gpars.actor.DefaultActor
 
 class AcquisitionTest extends DefaultActor {

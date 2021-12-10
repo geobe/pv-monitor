@@ -26,40 +26,43 @@ package de.geobe.energy.acquire
 
 import groovyx.gpars.agent.Agent
 
-import javax.persistence.Entity
-import javax.persistence.GeneratedValue
-import javax.persistence.GenerationType
-import javax.persistence.Id
-import javax.persistence.Temporal
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
-
 /**
  *
  */
 class PvRecorder extends Agent<ArrayDeque<Reading>> {
-    static final int SHORT_INTERVAL = 5
-    static final int LONG_INTERVAL = 15
+    static final int STORAGE_INTERVAL = 60
     static final int UPDATE_RATE = 3
-    static final int MAX_READINGS = LONG_INTERVAL * UPDATE_RATE
+    private static int MAX_READINGS = STORAGE_INTERVAL * UPDATE_RATE
+    static getMaxReadings() {MAX_READINGS}
 
-    private data = new ArrayDeque<>(MAX_READINGS + 1)
+    PvRecorder(int storage = STORAGE_INTERVAL) {
+        super(new ArrayDeque<>(storage * UPDATE_RATE + 1))
+        MAX_READINGS = storage * UPDATE_RATE
+    }
 
     /**
-     * add new reading to the data log and remove oldest reading, if it is
-     * older then LONG_INTERVAL minutes
+     * add new reading to the data log and remove oldest reading, if MAX_READINGS +1 is
+     * exceeded. I.e. data array contains values for at least STORAGE_INTERVAL minutes.
+     * As sometimes readings are lost, data can cover some minutes more. So look
+     * at the timestamps.
      * @param reading values read from web interface
      */
-    def addReading(Reading reading) {
+    private addReading(Reading reading) {
         if (data.size() >= MAX_READINGS) {
-            data.remove()
+            data.removeLast()
         }
-        data.add reading
+        data.addFirst reading
         return
     }
 
-    def val() {
-        new ArrayList<Reading>(data.toArray() as Collection<? extends Reading>).reverse(true)
+    /**
+     * Threadsafe access to the latest recorded PV readings with the most actual reading in front.
+     * @return a new arraylist of reading values, newest at index [0]
+     */
+    def getValues() {
+//        def value = val
+//        new ArrayList<Reading>(value.toArray() as Collection<? extends Reading>).reverse(true)
+        new ArrayList<Reading>(val)
     }
 }
 
