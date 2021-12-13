@@ -61,7 +61,6 @@ class AcquisitionTest extends DefaultActor {
 
 class TestRun {
     static void main(String[] args) {
-        PvDataFilter.recordReadings = false // save raw data to db for tests
         PvDb.getPvDatabase()      // init singleton
         def pvMonitor = new PvTestMonitor()
         def acqt = new AcquisitionTest()

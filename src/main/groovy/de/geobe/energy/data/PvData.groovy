@@ -1,6 +1,5 @@
 package de.geobe.energy.data
 
-
 import de.geobe.energy.acquire.Reading
 import groovy.transform.AutoClone
 
@@ -11,9 +10,9 @@ import javax.persistence.Id
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 
+import static de.geobe.energy.acquire.PvRecorder.STORAGE_INTERVAL
 import static java.lang.Math.max
 import static java.lang.Math.min
-import static de.geobe.energy.acquire.PvRecorder.STORAGE_INTERVAL
 
 /**
  * Datatype class that holds average, min and max values of photovoltaic (pv)
@@ -105,9 +104,10 @@ class PvData {
      * @return a new PvData object
      */
     static PvData aggregate(List<PvData> pvDataList) {
-        def pvData = pvDataList[0].clone()
-        pvData.battLoad = pvDataList[-1].battLoad
-        pvDataList[1..<pvDataList.size()].each {
+        def sortedList = pvDataList.sort { it.recordedAt }
+        def pvData = sortedList[0].clone()
+        pvData.battLoad = sortedList[-1].battLoad
+        sortedList[1..<sortedList.size()].each {
             pvData.prodAvg += it.prodAvg
             pvData.prodMin = min(pvData.prodMin, it.prodMin)
             pvData.prodMax = max(pvData.prodMax, it.prodMax)
@@ -129,10 +129,11 @@ class PvData {
 
         }
 
-        pvData.prodAvg = pvData.prodAvg.intdiv(pvDataList.size())
-        pvData.consAvg = pvData.consAvg.intdiv(pvDataList.size())
-        pvData.gridAvg = pvData.gridAvg.intdiv(pvDataList.size())
-        pvData.battAvg = pvData.battAvg.intdiv(pvDataList.size())
+        pvData.prodAvg = pvData.prodAvg.intdiv(sortedList.size())
+        pvData.consAvg = pvData.consAvg.intdiv(sortedList.size())
+        pvData.gridAvg = pvData.gridAvg.intdiv(sortedList.size())
+        pvData.battAvg = pvData.battAvg.intdiv(sortedList.size())
+        pvData.recordedAt = pvDataList[-1].recordedAt
 
         pvData
     }
@@ -146,24 +147,28 @@ class PvData {
      * @return map of reading lists indexed with timestamp of last reading rounded to closest full minute
      */
     static Map<LocalDateTime, List<Reading>> intervalFilter(List<Reading> readings,
-                                                            int intervalMinutes = STORAGE_INTERVAL) {
+                                                            int intervalMinutes = STORAGE_INTERVAL,
+                                                            boolean firstIntervalOnly = false) {
         def intervals = new TreeMap<LocalDateTime, List<Reading>>()
         // find start time
         def timesplit = readings[0].timestamp
         def second = timesplit.second
         def minute = timesplit.minute
-        if (second > SECONDS_PER_MINUTE - ZERO_INTERVAL) {
-            minute++
-        }
         def tickOffset = minute % intervalMinutes
-        // first minute that is a "tick" on the time axis
-        def startMinute = minute - tickOffset
-        timesplit = timesplit.minusMinutes(tickOffset).truncatedTo(ChronoUnit.MINUTES)
-        // strip off leading records before the first tick interval
-        def truncatedList = readings.dropWhile {
-            it.timestamp > timesplit.plusSeconds(ZERO_INTERVAL)
+        def truncatedList = readings
+//        def deltaMinute = 0
+        if (tickOffset == intervalMinutes - 1 && second > SECONDS_PER_MINUTE - ZERO_INTERVAL) {
+            timesplit = timesplit.truncatedTo(ChronoUnit.MINUTES).plusMinutes(1)
+        } else if (tickOffset == 0 && second <= ZERO_INTERVAL) {
+            timesplit = timesplit.truncatedTo(ChronoUnit.MINUTES)
+        } else {
+            timesplit = timesplit.minusMinutes(tickOffset).truncatedTo(ChronoUnit.MINUTES)
+            // strip off leading records before the first tick interval
+            truncatedList = readings.dropWhile {
+                it.timestamp > timesplit.plusSeconds(ZERO_INTERVAL)
+            }
         }
-        while (truncatedList[-1].timestamp <= timesplit.minusMinutes(intervalMinutes).plusSeconds(ZERO_INTERVAL)) {
+        while (truncatedList && truncatedList[-1].timestamp <= timesplit.minusMinutes(intervalMinutes).plusSeconds(3 * ZERO_INTERVAL)) {
             def timeIndex = timesplit
             timesplit = timesplit.minusMinutes(intervalMinutes)
             def splitter = truncatedList.split {
@@ -171,6 +176,9 @@ class PvData {
             }
             intervals[timeIndex] = splitter[0]
             truncatedList = splitter[1]
+            if (firstIntervalOnly) {
+                break
+            }
         }
         intervals
     }

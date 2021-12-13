@@ -21,7 +21,7 @@ class PvDataFilter extends DefaultActor {
     static final int SECONDS_PER_MINUTE = 60
     static final int ZERO_INTERVAL = 10
 
-    static recordReadings = false
+//    static recordReadings = false
 
     private LocalDateTime lastSaved
     private LocalDateTime lastTimestamp
@@ -54,13 +54,13 @@ class PvDataFilter extends DefaultActor {
     }
 
     private evaluateMessage(List<Reading> msg) {
-        if(recordReadings) {
-            PvDb.pvDatabase.saveToDb(msg[0])
-        }
+//        if(recordReadings) {
+//            PvDb.pvDatabase.saveToDb(msg[0])
+//        }
         def latest = msg[0].timestamp
-        if (msg.size() < SAMPLE_SIZE) {
-            return      // too few samples in msg
-        }
+//        if (msg.size() < SAMPLE_SIZE) {
+//            return      // too few samples in msg
+//        }
         def second = latest.second
         def minute = latest.minute
         def timestamp = latest.truncatedTo(ChronoUnit.MINUTES)

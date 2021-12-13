@@ -55,6 +55,10 @@ class PvRecorder extends Agent<ArrayDeque<Reading>> {
         return
     }
 
+    private clear() {
+        data.clear()
+    }
+
     /**
      * Threadsafe access to the latest recorded PV readings with the most actual reading in front.
      * @return a new arraylist of reading values, newest at index [0]
